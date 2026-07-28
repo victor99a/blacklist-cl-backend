@@ -1,35 +1,47 @@
 import { Router } from "express";
-import { prisma } from "../prisma.js";
+import db from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
 
 const router = Router();
 
-// POST /api/vote/:vehicleId
 router.post("/:vehicleId", authMiddleware, async (req, res) => {
   try {
     const { vehicleId } = req.params;
     const userId = req.user.id;
 
-    const existing = await prisma.vote.findUnique({
-      where: { vehicleId_userId: { vehicleId, userId } },
-    });
-    if (existing) return res.status(409).json({ error: "Ya votaste este proyecto" });
+    const existing = await db.query(
+      "SELECT id FROM votes WHERE vehicle_id = $1 AND user_id = $2 LIMIT 1",
+      [vehicleId, userId],
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: "Ya votaste este proyecto" });
+    }
 
-    const vehicle = await prisma.vehicle.findUnique({
-      where: { id: vehicleId },
-      select: { userId: true },
-    });
-    if (!vehicle) return res.status(404).json({ error: "No encontrado" });
-    if (vehicle.userId === userId) return res.status(400).json({ error: "No puedes votar tu propio proyecto" });
+    const owner = await db.query(
+      "SELECT user_id FROM vehicles WHERE id = $1 LIMIT 1",
+      [vehicleId],
+    );
+    if (!owner.rows.length) return res.status(404).json({ error: "No encontrado" });
+    if (owner.rows[0].user_id === userId) {
+      return res.status(400).json({ error: "No puedes votar tu propio proyecto" });
+    }
 
-    await prisma.vote.create({ data: { vehicleId, userId } });
-    await prisma.vehicle.update({ where: { id: vehicleId }, data: { respectCount: { increment: 1 } } });
-    await prisma.user.update({ where: { id: vehicle.userId }, data: { bountyScore: { increment: 5 } } });
-    await prisma.bountyLog.create({ data: { profileId: vehicle.userId, amount: 5, action: "receive_respect", referenceId: vehicleId } });
+    await db.query(
+      "INSERT INTO votes (vehicle_id, user_id) VALUES ($1, $2)",
+      [vehicleId, userId],
+    );
+    await db.query(
+      "UPDATE vehicles SET respect_count = respect_count + 1 WHERE id = $1",
+      [vehicleId],
+    );
+    await db.query(
+      "UPDATE users SET bounty_score = bounty_score + 5 WHERE id = $1",
+      [owner.rows[0].user_id],
+    );
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("Vote error:", err);
     res.status(500).json({ error: "Error al votar" });
   }
 });

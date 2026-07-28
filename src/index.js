@@ -3,8 +3,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import { Router } from "express";
 
-import authRoutes from "./routes/auth.js";
+import { signup, login, me } from "./routes/auth.js";
 import vehicleRoutes from "./routes/vehicles.js";
 import uploadRoutes from "./routes/upload.js";
 import voteRoutes from "./routes/vote.js";
@@ -18,8 +19,13 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
 app.use(morgan("dev"));
 app.use(express.json());
 
-// Routes
-app.use("/api/auth", authRoutes);
+// Auth routes (functions -> Router)
+const authRouter = Router();
+authRouter.post("/signup", signup);
+authRouter.post("/login", login);
+authRouter.get("/me", me);
+app.use("/api/auth", authRouter);
+
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/vote", voteRoutes);

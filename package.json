@@ -1,14 +1,13 @@
 {
   "name": "blacklist-cl-backend",
   "version": "1.0.0",
-  "description": "Blacklist.cl API — Express + Prisma + Railway",
+  "description": "Blacklist.cl API — Express + PostgreSQL",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node -r ./src/preload.cjs src/index.js",
-    "build": "npx prisma generate",
-    "postinstall": "npx prisma generate"
+    "start": "node src/index.js",
+    "build": "node -e \"console.log('No build step needed')\""
   },
   "keywords": [
     "blacklist",
@@ -18,10 +17,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^7.9.1",
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
@@ -34,7 +29,6 @@
     "multer": "^2.2.0",
     "pg": "^8.22.0",
     "pg-native": "^3.8.0",
-    "postgres": "^3.4.9",
-    "prisma": "^7.9.1"
+    "postgres": "^3.4.9"
   }
 }

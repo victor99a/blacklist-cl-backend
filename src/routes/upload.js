@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
+import fs from "fs";
 
 const upload = multer({ dest: "uploads/", limits: { fileSize: 10 * 1024 * 1024 } });
 const router = Router();
@@ -14,16 +15,12 @@ cloudinary.config({
 router.post("/", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se encontr\u00F3 archivo" });
-
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "blacklist/vehicles",
       format: "webp",
       transformation: [{ width: 1200, height: 800, crop: "limit", quality: "auto:best" }],
     });
-
-    // Clean up temp file
-    import("fs").then((fs) => fs.unlinkSync(req.file.path)).catch(() => {});
-
+    fs.unlinkSync(req.file.path);
     res.json({ url: result.secure_url });
   } catch (err) {
     console.error("Upload error:", err);

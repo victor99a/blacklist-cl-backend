@@ -1,45 +1,48 @@
-import { Router } from "express";
-import { prisma } from "../prisma.js";
+import db from "../db.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { Router } from "express";
 
 const router = Router();
 
 // GET /api/vehicles — Top 3 public
 router.get("/", async (req, res) => {
   try {
-    const vehicles = await prisma.vehicle.findMany({
-      where: { isPublished: true },
-      orderBy: { respectCount: "desc" },
-      take: 3,
-      include: {
-        user: { select: { username: true, displayName: true, bountyScore: true } },
-        modifications: {
-          select: { id: true, category: true, title: true, brand: true, workshop: { select: { name: true, isVerified: true } } },
-        },
-        _count: { select: { votes: true } },
-      },
-    });
+    const result = await db.query(`
+      SELECT
+        v.id, v.name, v.make, v.model, v.slug, v.power, v.city,
+        v.respect_count, v.bounty_score, v.specs_0_100, v.drivetrain,
+        u.username, u.bounty_score AS user_bounty,
+        COALESCE(json_agg(
+          json_build_object('id', m.id, 'category', m.category, 'title', m.title, 'brand', m.brand,
+            'workshop', CASE WHEN w.id IS NOT NULL THEN json_build_object('name', w.name, 'is_verified', w.is_verified) ELSE NULL END)
+        ) FILTER (WHERE m.id IS NOT NULL), '[]') AS modifications
+      FROM vehicles v
+      JOIN users u ON u.id = v.user_id
+      LEFT JOIN modifications m ON m.vehicle_id = v.id
+      LEFT JOIN workshops w ON w.id = m.workshop_id
+      WHERE v.is_published = true
+      GROUP BY v.id, u.username, u.bounty_score
+      ORDER BY v.respect_count DESC
+      LIMIT 3
+    `);
 
-    const topVehicles = vehicles.map((v, i) => {
-      const uniqueCats = new Set(v.modifications.map((m) => m.category)).size;
+    const vehicles = result.rows.map((v, i) => {
+      const mods = v.modifications || [];
+      const uniqueCats = new Set(mods.map(m => m.category)).size;
       const tags = [];
-      if (v.modifications.some((m) => m.workshop?.isVerified)) tags.push("VERIFIED WORKSHOP");
-      if (v.modifications.some((m) => m.category === "engine" && (m.title.toLowerCase().includes("turbo") || m.title.toLowerCase().includes("nos")))) tags.push("NOS READY");
+      if (mods.some(m => m.workshop?.is_verified)) tags.push("VERIFIED WORKSHOP");
+      if (mods.some(m => m.category === "engine" && (m.title?.toLowerCase().includes("turbo") || m.title?.toLowerCase().includes("nos")))) tags.push("NOS READY");
       if (uniqueCats >= 3) tags.push("STAGE 2");
-
       return {
-        rank: i + 1, name: v.name, pilot: `@${v.user.username}`,
-        vehicle: `${v.make} ${v.model}`, city: v.city ?? "",
-        power: v.power ?? null,
-        specs0_100: v.specs0_100 ?? null,
-        drivetrain: v.drivetrain ?? null,
-        modsCount: v.modifications.length,
-        respect: v.respectCount,
-        bounty: v.user.bountyScore, tags, id: v.id, slug: v.slug,
+        rank: i + 1, name: v.name, pilot: `@${v.username}`,
+        vehicle: `${v.make} ${v.model}`, city: v.city || "",
+        power: v.power, specs0_100: v.specs_0_100, drivetrain: v.drivetrain,
+        modsCount: mods.length, respect: v.respect_count,
+        bounty: v.user_bounty, tags, id: v.id, slug: v.slug,
       };
     });
 
-    res.json(topVehicles);
+    res.json(vehicles);
   } catch (err) {
     console.error("Error fetching vehicles:", err);
     res.status(500).json({ error: "Error al cargar veh\u00EDculos" });
@@ -49,23 +52,46 @@ router.get("/", async (req, res) => {
 // GET /api/vehicles/:slug — Single vehicle detail
 router.get("/:slug", async (req, res) => {
   try {
-    const vehicle = await prisma.vehicle.findUnique({
-      where: { slug: req.params.slug },
-      include: {
-        user: { select: { id: true, username: true, displayName: true, avatarUrl: true, bountyScore: true, city: true, instagram: true, tiktok: true } },
-        modifications: {
-          include: { workshop: { select: { name: true, isVerified: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-        _count: { select: { votes: true } },
+    const vResult = await db.query(`
+      SELECT v.*, u.id AS owner_id, u.username, u.display_name, u.avatar_url,
+        u.bounty_score, u.city AS owner_city, u.instagram, u.tiktok,
+        (SELECT COUNT(*) FROM votes WHERE vehicle_id = v.id) AS vote_count
+      FROM vehicles v
+      JOIN users u ON u.id = v.user_id
+      WHERE v.slug = $1 AND v.is_published = true
+      LIMIT 1
+    `, [req.params.slug]);
+
+    const vehicle = vResult.rows[0];
+    if (!vehicle) return res.status(404).json({ error: "No encontrado" });
+
+    const modsResult = await db.query(`
+      SELECT m.*, json_build_object('name', w.name, 'is_verified', w.is_verified) AS workshop
+      FROM modifications m
+      LEFT JOIN workshops w ON w.id = m.workshop_id
+      WHERE m.vehicle_id = $1
+      ORDER BY m.created_at ASC
+    `, [vehicle.id]);
+
+    res.json({
+      id: vehicle.id, name: vehicle.name, make: vehicle.make,
+      model: vehicle.model, year: vehicle.year, slug: vehicle.slug,
+      mainImageUrl: vehicle.main_image_url, description: vehicle.description,
+      power: vehicle.power, specs0_100: vehicle.specs_0_100,
+      drivetrain: vehicle.drivetrain, city: vehicle.city,
+      isPublished: vehicle.is_published, respectCount: vehicle.respect_count,
+      instagram: vehicle.instagram, tiktok: vehicle.tiktok,
+      user: {
+        id: vehicle.owner_id, username: vehicle.username,
+        displayName: vehicle.display_name, avatarUrl: vehicle.avatar_url,
+        bountyScore: vehicle.bounty_score, city: vehicle.owner_city,
+        instagram: vehicle.instagram, tiktok: vehicle.tiktok,
       },
+      modifications: modsResult.rows,
+      _count: { votes: parseInt(vehicle.vote_count) },
     });
-    if (!vehicle || !vehicle.isPublished) {
-      return res.status(404).json({ error: "No encontrado" });
-    }
-    res.json(vehicle);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching vehicle:", err);
     res.status(500).json({ error: "Error" });
   }
 });
@@ -73,45 +99,42 @@ router.get("/:slug", async (req, res) => {
 // POST /api/vehicles — Create vehicle (auth)
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { name, make, model, year, power, specs0_100, drivetrain, city, mainImageUrl, description, instagram, tiktok, modifications, workshop } = req.body;
+    const { name, make, model, year, power, specs0_100, drivetrain,
+      city, mainImageUrl, description, instagram, tiktok, modifications } = req.body;
 
-    const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) + "-" + req.user.id.slice(0, 6);
+    const slug = name.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80)
+      + "-" + req.user.id.slice(0, 6);
 
-    let workshopId = null;
-    if (workshop?.name) {
-      const existing = await prisma.workshop.findFirst({
-        where: { name: { equals: workshop.name, mode: "insensitive" } },
-      });
-      if (existing) {
-        workshopId = existing.id;
-      } else {
-        const created = await prisma.workshop.create({
-          data: { name: workshop.name, slug: workshop.name.toLowerCase().replace(/\s+/g, "-"), cityRegion: workshop.cityRegion || "Santiago", instagram: workshop.instagram },
-        });
-        workshopId = created.id;
+    const vResult = await db.query(`
+      INSERT INTO vehicles (user_id, name, make, model, year, slug, power,
+        specs_0_100, drivetrain, city, main_image_url, description, is_published)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+      RETURNING id, slug
+    `, [req.user.id, name, make, model, year || null, slug,
+        power || null, specs0_100 || null, drivetrain || null,
+        city || "Santiago", mainImageUrl || null, description || null,
+    ]);
+
+    const vehicle = vResult.rows[0];
+
+    // Insert modifications
+    if (modifications?.length) {
+      for (const m of modifications) {
+        await db.query(
+          "INSERT INTO modifications (vehicle_id, category, title, brand) VALUES ($1, $2, $3, $4)",
+          [vehicle.id, m.category, m.title, m.brand || null],
+        );
       }
     }
 
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        userId: req.user.id, name, make, model, year: year ? parseInt(year) : null,
-        slug, power: power ? parseInt(power) : null,
-        specs0_100: specs0_100 || null, drivetrain: drivetrain || null,
-        city, mainImageUrl, description,
-        isPublished: true,
-        modifications: modifications?.length
-          ? { create: modifications.map((m) => ({ category: m.category, title: m.title, brand: m.brand || null, workshopId })) }
-          : undefined,
-      },
-    });
-
     // +50 bounty
-    await prisma.user.update({ where: { id: req.user.id }, data: { bountyScore: { increment: 50 } } });
-    await prisma.bountyLog.create({ data: { profileId: req.user.id, amount: 50, action: "publish_vehicle", referenceId: vehicle.id } });
+    await db.query("UPDATE users SET bounty_score = bounty_score + 50 WHERE id = $1", [req.user.id]);
 
     res.status(201).json({ success: true, slug: vehicle.slug });
   } catch (err) {
-    console.error(err);
+    console.error("Error creating vehicle:", err);
     res.status(500).json({ error: "Error al crear veh\u00EDculo" });
   }
 });
