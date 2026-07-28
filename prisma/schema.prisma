@@ -1,0 +1,158 @@
+// ───────────────────────────────────────────────
+// Blacklist.cl — Prisma Schema (PostgreSQL / Railway)
+// NFS Most Wanted: Garage / Blacklist / Bounty
+// ───────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users (extends auth) ───
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  displayName  String?  @map("display_name")
+  passwordHash String?  @map("password_hash")
+  avatarUrl    String?  @map("avatar_url")
+  bio          String?
+  city         String?
+  bountyScore  Int      @default(0) @map("bounty_score")
+  tier         String   @default("free") // free | pro | founder | workshop
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  vehicles      Vehicle[]
+  votes         Vote[]
+  reviews       Review[]
+  bountyLogs    BountyLog[]
+  ownedWorkshop Workshop?
+
+  @@map("users")
+}
+
+// ─── Vehicles ───
+model Vehicle {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  name         String
+  make         String
+  model        String
+  year         Int?
+  slug         String   @unique
+  mainImageUrl String?  @map("main_image_url")
+  description  String?
+  power        Int?     // HP estimate
+  city         String?
+  isPublished  Boolean  @default(false) @map("is_published")
+  respectCount Int      @default(0) @map("respect_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modifications Modification[]
+  reviews       Review[]
+  votes         Vote[]
+
+  @@index([userId])
+  @@index([respectCount(sort: Desc)])
+  @@map("vehicles")
+}
+
+// ─── Modifications ───
+model Modification {
+  id          String   @id @default(uuid())
+  vehicleId   String   @map("vehicle_id")
+  category    String   // engine | suspension | exhaust | brakes | wheels | body | interior | electronics
+  title       String
+  brand       String?
+  description String?
+  workshopId  String?  @map("workshop_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  vehicle Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  workshop Workshop? @relation(fields: [workshopId], references: [id])
+
+  @@index([vehicleId])
+  @@index([category])
+  @@map("modifications")
+}
+
+// ─── Workshops ───
+model Workshop {
+  id            String   @id @default(uuid())
+  ownerId       String?  @unique @map("owner_id")
+  name          String
+  slug          String   @unique
+  description   String?
+  logoUrl       String?  @map("logo_url")
+  cityRegion    String   @map("city_region")
+  instagram     String?  @map("instagram_handle")
+  specialties   String[]
+  isVerified    Boolean  @default(false) @map("is_verified")
+  ratingAvg     Float    @default(0) @map("rating_avg")
+  ratingCount   Int      @default(0) @map("rating_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  owner          User?          @relation(fields: [ownerId], references: [id])
+  modifications  Modification[]
+  reviews        Review[]
+
+  @@index([cityRegion])
+  @@index([isVerified])
+  @@map("workshops")
+}
+
+// ─── Reviews ───
+model Review {
+  id          String   @id @default(uuid())
+  vehicleId   String   @map("vehicle_id")
+  workshopId  String   @map("workshop_id")
+  userId      String   @map("user_id")
+  rating      Int      // 1-5
+  comment     String?
+  bountyEarned Int     @default(0) @map("bounty_earned")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  vehicle Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  workshop Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, workshopId])
+  @@index([workshopId])
+  @@map("reviews")
+}
+
+// ─── Votes (Respeto) ───
+model Vote {
+  vehicleId String   @map("vehicle_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([vehicleId, userId])
+  @@map("votes")
+}
+
+// ─── Bounty Log ───
+model BountyLog {
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  amount      Int
+  action      String   // publish_vehicle | add_photo | add_mod | review_workshop | receive_respect | bonus
+  referenceId String?  @map("reference_id")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile User @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("bounty_log")
+}
