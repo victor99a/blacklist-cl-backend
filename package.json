@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js",
+    "start": "node -r ./src/preload.cjs src/index.js",
     "build": "npx prisma generate",
     "postinstall": "npx prisma generate"
   },
