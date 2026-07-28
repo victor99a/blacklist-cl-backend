@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
     const result = await db.query(`
       SELECT
         v.id, v.name, v.make, v.model, v.slug, v.power, v.city,
-        v.respect_count, v.bounty_score, v.specs_0_100, v.drivetrain,
+        v.respect_count, v.specs_0_100, v.drivetrain,
         u.username, u.bounty_score AS user_bounty,
         COALESCE(json_agg(
           json_build_object('id', m.id, 'category', m.category, 'title', m.title, 'brand', m.brand,
