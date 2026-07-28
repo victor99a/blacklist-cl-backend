@@ -7,6 +7,9 @@ const dbUrl = process.env.DATABASE_URL || "";
 // but pg module doesn't handle HTTP CONNECT proxies, so use internal URL
 const pool = new pg.Pool({
   connectionString: dbUrl,
+  ssl: dbUrl.includes("railway.internal")
+    ? { rejectUnauthorized: false }
+    : false,
 });
 const adapter = new PrismaPg(pool);
 const g = globalThis;
