@@ -4,7 +4,7 @@ const url = process.env.DATABASE_URL ||
   `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}`;
 
 const sql = postgres(url, {
-  ssl: { rejectUnauthorized: false },
+  ssl: "require",
   connect_timeout: 10,
 });
 
