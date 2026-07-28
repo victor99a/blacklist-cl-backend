@@ -1,15 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
-import tls from "tls";
 
 const url = process.env.DATABASE_URL || "";
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 const pool = new pg.Pool({
   connectionString: url,
-  ssl: {
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined, // skip server identity check
-  },
+  ssl: true,
 });
 const adapter = new PrismaPg(pool);
 const g = globalThis;
