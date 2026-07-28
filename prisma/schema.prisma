@@ -21,6 +21,8 @@ model User {
   avatarUrl    String?  @map("avatar_url")
   bio          String?
   city         String?
+  instagram    String?
+  tiktok       String?
   bountyScore  Int      @default(0) @map("bounty_score")
   tier         String   @default("free") // free | pro | founder | workshop
   createdAt    DateTime @default(now()) @map("created_at")
@@ -47,6 +49,8 @@ model Vehicle {
   mainImageUrl String?  @map("main_image_url")
   description  String?
   power        Int?     // HP estimate
+  specs0_100   String?  @map("specs_0_100") // ej: "4.2s"
+  drivetrain   String?  // AWD | FWD | RWD
   city         String?
   isPublished  Boolean  @default(false) @map("is_published")
   respectCount Int      @default(0) @map("respect_count")

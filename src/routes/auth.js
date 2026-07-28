@@ -73,7 +73,7 @@ router.get("/me", async (req, res) => {
     const decoded = jwt.default.verify(header.split(" ")[1], process.env.JWT_SECRET || "dev-secret");
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, username: true, displayName: true, avatarUrl: true, bountyScore: true, tier: true, city: true },
+      select: { id: true, username: true, displayName: true, avatarUrl: true, bountyScore: true, tier: true, city: true, instagram: true, tiktok: true },
     });
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
     res.json(user);

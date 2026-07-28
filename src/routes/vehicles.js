@@ -21,10 +21,7 @@ router.get("/", async (req, res) => {
     });
 
     const topVehicles = vehicles.map((v, i) => {
-      const powerScore = Math.min(10, Math.max(1, ((v.power ?? 250) - 150) / 50));
       const uniqueCats = new Set(v.modifications.map((m) => m.category)).size;
-      const modsScore = Math.min(10, Math.max(1, uniqueCats * 2.5));
-      const respectScore = Math.min(10, Math.max(1, v.respectCount / 85));
       const tags = [];
       if (v.modifications.some((m) => m.workshop?.isVerified)) tags.push("VERIFIED WORKSHOP");
       if (v.modifications.some((m) => m.category === "engine" && (m.title.toLowerCase().includes("turbo") || m.title.toLowerCase().includes("nos")))) tags.push("NOS READY");
@@ -33,9 +30,11 @@ router.get("/", async (req, res) => {
       return {
         rank: i + 1, name: v.name, pilot: `@${v.user.username}`,
         vehicle: `${v.make} ${v.model}`, city: v.city ?? "",
-        power: Math.round(powerScore * 10) / 10,
-        mods: Math.round(modsScore * 10) / 10,
-        respect: Math.round(respectScore * 10) / 10,
+        power: v.power ?? null,
+        specs0_100: v.specs0_100 ?? null,
+        drivetrain: v.drivetrain ?? null,
+        modsCount: v.modifications.length,
+        respect: v.respectCount,
         bounty: v.user.bountyScore, tags, id: v.id, slug: v.slug,
       };
     });
@@ -53,7 +52,7 @@ router.get("/:slug", async (req, res) => {
     const vehicle = await prisma.vehicle.findUnique({
       where: { slug: req.params.slug },
       include: {
-        user: { select: { id: true, username: true, displayName: true, avatarUrl: true, bountyScore: true, city: true } },
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true, bountyScore: true, city: true, instagram: true, tiktok: true } },
         modifications: {
           include: { workshop: { select: { name: true, isVerified: true } } },
           orderBy: { createdAt: "asc" },
@@ -74,7 +73,7 @@ router.get("/:slug", async (req, res) => {
 // POST /api/vehicles — Create vehicle (auth)
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { name, make, model, year, power, city, mainImageUrl, description, modifications, workshop } = req.body;
+    const { name, make, model, year, power, specs0_100, drivetrain, city, mainImageUrl, description, instagram, tiktok, modifications, workshop } = req.body;
 
     const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) + "-" + req.user.id.slice(0, 6);
 
@@ -96,7 +95,9 @@ router.post("/", authMiddleware, async (req, res) => {
     const vehicle = await prisma.vehicle.create({
       data: {
         userId: req.user.id, name, make, model, year: year ? parseInt(year) : null,
-        slug, power: power ? parseInt(power) : null, city, mainImageUrl, description,
+        slug, power: power ? parseInt(power) : null,
+        specs0_100: specs0_100 || null, drivetrain: drivetrain || null,
+        city, mainImageUrl, description,
         isPublished: true,
         modifications: modifications?.length
           ? { create: modifications.map((m) => ({ category: m.category, title: m.title, brand: m.brand || null, workshopId })) }
