@@ -1,10 +1,14 @@
 import pg from "pg";
 
+// Use native (libpq) bindings for proper SSL support
+const { Pool } = pg.native;
+
 const url = process.env.DATABASE_URL ||
   `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}`;
 
-const pool = new pg.Pool({
+const pool = new Pool({
   connectionString: url,
+  ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
 });
 
