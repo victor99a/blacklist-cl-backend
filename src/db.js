@@ -5,7 +5,6 @@ const url = process.env.DATABASE_URL ||
 
 const pool = new pg.Pool({
   connectionString: url,
-  ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
 });
 
