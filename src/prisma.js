@@ -1,11 +1,16 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { Pool } from "@neondatabase/serverless";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
-const dbUrl = process.env.DATABASE_URL;
-console.log("[DB] DATABASE_URL present:", !!dbUrl);
-const pool = new Pool({ connectionString: dbUrl });
-const adapter = new PrismaNeon(pool);
+const dbUrl = process.env.DATABASE_URL || "";
+const useSSL = !dbUrl.includes("railway.internal");
+
+const pool = new pg.Pool({
+  connectionString: dbUrl,
+  ...(useSSL ? { ssl: { rejectUnauthorized: false } } : {}),
+});
+
+const adapter = new PrismaPg(pool);
 const g = globalThis;
 export const prisma = g.prisma || new PrismaClient({ adapter });
 
