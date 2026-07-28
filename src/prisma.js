@@ -2,11 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
+const url = process.env.DATABASE_URL || "";
+const useSSL = !url.includes("railway.internal");
+
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes("railway.internal")
-    ? false
-    : { rejectUnauthorized: false },
+  connectionString: url,
+  ...(useSSL ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 const adapter = new PrismaPg(pool);
 const g = globalThis;
