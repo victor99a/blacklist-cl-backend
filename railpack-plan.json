@@ -1,0 +1,6 @@
+{
+  "packages": {
+    "apt": ["libpq-dev"],
+    "mise": ["node"]
+  }
+}
