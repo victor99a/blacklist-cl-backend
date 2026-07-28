@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { Router } from "express";
 
 import { signup, login, me } from "./routes/auth.js";
+import { setup } from "./routes/setup.js";
 import vehicleRoutes from "./routes/vehicles.js";
 import uploadRoutes from "./routes/upload.js";
 import voteRoutes from "./routes/vote.js";
@@ -30,6 +31,9 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/vote", voteRoutes);
 app.use("/api/garaje", garajeRoutes);
+
+// Setup (create tables)
+app.get("/api/setup", setup);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
