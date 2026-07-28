@@ -76,7 +76,7 @@ router.get("/:slug", async (req, res) => {
     res.json({
       id: vehicle.id, name: vehicle.name, make: vehicle.make,
       model: vehicle.model, year: vehicle.year, slug: vehicle.slug,
-      mainImageUrl: vehicle.main_image_url, description: vehicle.description,
+      mainImageUrl: vehicle.main_image_url, galleryUrls: vehicle.gallery_urls || [], description: vehicle.description,
       power: vehicle.power, specs0_100: vehicle.specs_0_100,
       drivetrain: vehicle.drivetrain, city: vehicle.city,
       isPublished: vehicle.is_published, respectCount: vehicle.respect_count,
@@ -100,7 +100,7 @@ router.get("/:slug", async (req, res) => {
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { name, make, model, year, power, specs0_100, drivetrain,
-      city, mainImageUrl, description, instagram, tiktok, modifications } = req.body;
+      city, mainImageUrl, galleryUrls, description, instagram, tiktok, modifications } = req.body;
 
     const slug = name.toLowerCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -109,12 +109,14 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const vResult = await db.query(`
       INSERT INTO vehicles (user_id, name, make, model, year, slug, power,
-        specs_0_100, drivetrain, city, main_image_url, description, is_published)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+        specs_0_100, drivetrain, city, main_image_url, gallery_urls, description, is_published)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)
       RETURNING id, slug
     `, [req.user.id, name, make, model, year || null, slug,
         power || null, specs0_100 || null, drivetrain || null,
-        city || "Santiago", mainImageUrl || null, description || null,
+        city || "Santiago", mainImageUrl || null,
+        galleryUrls ? `{${galleryUrls.join(",")}}` : "{}",
+        description || null,
     ]);
 
     const vehicle = vResult.rows[0];

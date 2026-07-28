@@ -103,3 +103,13 @@ export async function setup(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
+export async function migrate(req, res) {
+  try {
+    await db.query("ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS gallery_urls TEXT[] DEFAULT '{}'");
+    res.json({ success: true, message: "Migration applied" });
+  } catch (err) {
+    console.error("Migration error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+}

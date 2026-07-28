@@ -6,7 +6,7 @@ import morgan from "morgan";
 import { Router } from "express";
 
 import { signup, login, me } from "./routes/auth.js";
-import { setup } from "./routes/setup.js";
+import { setup, migrate } from "./routes/setup.js";
 import vehicleRoutes from "./routes/vehicles.js";
 import uploadRoutes from "./routes/upload.js";
 import voteRoutes from "./routes/vote.js";
@@ -34,6 +34,7 @@ app.use("/api/garaje", garajeRoutes);
 
 // Setup (create tables)
 app.get("/api/setup", setup);
+app.get("/api/migrate", migrate);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
