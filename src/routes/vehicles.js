@@ -11,6 +11,7 @@ router.get("/", async (req, res) => {
       SELECT
         v.id, v.name, v.make, v.model, v.slug, v.power, v.city,
         v.respect_count, v.specs_0_100, v.drivetrain,
+        v.main_image_url,
         u.username, u.bounty_score AS user_bounty,
         COALESCE(json_agg(
           json_build_object('id', m.id, 'category', m.category, 'title', m.title, 'brand', m.brand,
@@ -37,7 +38,8 @@ router.get("/", async (req, res) => {
         rank: i + 1, name: v.name, pilot: `@${v.username}`,
         vehicle: `${v.make} ${v.model}`, city: v.city || "",
         power: v.power, specs0_100: v.specs_0_100, drivetrain: v.drivetrain,
-        modsCount: mods.length, respect: v.respect_count,
+        mainImageUrl: v.main_image_url, modsCount: mods.length,
+        respect: v.respect_count,
         bounty: v.user_bounty, tags, id: v.id, slug: v.slug,
       };
     });
