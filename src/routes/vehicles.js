@@ -51,6 +51,49 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/vehicles/ranking — Full ranking list
+router.get("/ranking", async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        v.id, v.name, v.make, v.model, v.slug, v.power, v.city,
+        v.respect_count, v.specs_0_100, v.drivetrain, v.main_image_url,
+        u.username, u.bounty_score AS user_bounty,
+        COALESCE(json_agg(
+          json_build_object('id', m.id, 'category', m.category, 'title', m.title)
+        ) FILTER (WHERE m.id IS NOT NULL), '[]') AS modifications
+      FROM vehicles v
+      JOIN users u ON u.id = v.user_id
+      LEFT JOIN modifications m ON m.vehicle_id = v.id
+      WHERE v.is_published = true
+      GROUP BY v.id, u.username, u.bounty_score
+      ORDER BY v.respect_count DESC
+    `);
+
+    const ranking = result.rows.map((v, i) => ({
+      rank: i + 1,
+      name: v.name,
+      pilot: `@${v.username}`,
+      vehicle: `${v.make} ${v.model}`,
+      city: v.city || "",
+      power: v.power,
+      specs0_100: v.specs_0_100,
+      drivetrain: v.drivetrain,
+      mainImageUrl: v.main_image_url,
+      modsCount: (v.modifications || []).length,
+      respect: v.respect_count,
+      bounty: v.user_bounty,
+      id: v.id,
+      slug: v.slug,
+    }));
+
+    res.json(ranking);
+  } catch (err) {
+    console.error("Error fetching ranking:", err);
+    res.status(500).json({ error: "Error al cargar ranking" });
+  }
+});
+
 // GET /api/vehicles/:slug — Single vehicle detail
 router.get("/:slug", async (req, res) => {
   try {
