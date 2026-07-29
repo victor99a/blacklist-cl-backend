@@ -16,6 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use("/uploads", express.static("/app/uploads", { maxAge: "7d" }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
 app.use(morgan("dev"));
 app.use(express.json());
